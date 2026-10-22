@@ -178,7 +178,7 @@ class Install:
             if match:
                 gcc_version = match.group(1)
                 print(f"GCC version: {gcc_version}")
-            if "8.1" < gcc_version:
+            if tuple(map(int, gcc_version.split("."))) >= (8, 1, 0):
                 print(
                     "GCC version is greater than or equal to 8.1.0, skip installation"
                 )
@@ -216,8 +216,8 @@ class Install:
             if match:
                 cmake_version = match.group(1)
                 print(f"CMake version: {cmake_version}")
-            if "3.20" < cmake_version:
-                print("CMake version is greater than 3.20, skip installation")
+            if tuple(map(int, cmake_version.split("."))) >= (3, 20, 0):
+                print("CMake version is greater than or equal to 3.20, skip installation")
                 return None
         except Exception as e:
             print("cmake error: {}".format(e))
@@ -240,9 +240,10 @@ class Install:
         )
         os.chdir(self._dowload_path)
         self._cmd("tar -zxvf {}.tar.gz".format(cmake_name))
-        self._cmd("cp -r {}/bin/* /usr/local/bin".format(cmake_name))
-        self._cmd("cp -r {}/doc/* /usr/local/doc".format(cmake_name))
-        self._cmd("cp -r {}/share/* /usr/local/share".format(cmake_name))
+        self._cmd("sudo mkdir -p /usr/local/bin /usr/local/doc /usr/local/share")
+        self._cmd("sudo cp -r {}/bin/. /usr/local/bin/".format(cmake_name))
+        self._cmd("sudo cp -r {}/doc/. /usr/local/doc/".format(cmake_name))
+        self._cmd("sudo cp -r {}/share/. /usr/local/share/".format(cmake_name))
         self._cmd("rm -rf {}*".format(cmake_name))
         self._cmd("sudo ldconfig")
         self._cmd("cmake --version")

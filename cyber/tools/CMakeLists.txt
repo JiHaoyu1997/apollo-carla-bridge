@@ -41,41 +41,26 @@ set_target_properties(cyber_recorder PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_recorder/"
 )
 
-# cyber_channel cyber_launch cyber_node cyber_service
-file(COPY
-  cyber_channel/cyber_channel.py
-  DESTINATION ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_channel/
-)
-file(COPY
-  cyber_launch/cyber_launch.py
-  DESTINATION ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_launch/
-)
-file(COPY
-  cyber_node/cyber_node.py
-  DESTINATION ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_node/
-)
-file(COPY
-  cyber_service/cyber_service.py
-  DESTINATION ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_service/
-)
-file(COPY
-  cyber_tools_auto_complete.bash
-  DESTINATION ${CMAKE_BINARY_DIR}
-)
+# Keep Python sources as .py files and invoke them through Python explicitly.
+foreach(tool cyber_channel cyber_launch cyber_node cyber_service)
+  set(tool_dir "${CMAKE_BINARY_DIR}/bin/cyber/tools/${tool}")
+  file(MAKE_DIRECTORY "${tool_dir}")
+  set(CYBER_TOOL_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/${tool}/${tool}.py")
+  configure_file(python_tool.sh.in "${tool_dir}/${tool}" @ONLY)
+  file(CHMOD "${tool_dir}/${tool}" PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-file(RENAME ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_channel/cyber_channel.py ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_channel/cyber_channel)
-file(RENAME ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_launch/cyber_launch.py ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_launch/cyber_launch)
-file(RENAME ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_node/cyber_node.py ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_node/cyber_node)
-file(RENAME ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_service/cyber_service.py ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_service/cyber_service)
+  # Installed launchers resolve their companion script relative to themselves.
+  set(CYBER_TOOL_SCRIPT "\$(dirname \"\$0\")/${tool}.py")
+  configure_file(python_tool.sh.in "${tool_dir}/installed/${tool}" @ONLY)
+  install(PROGRAMS "${tool_dir}/installed/${tool}" DESTINATION bin)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/${tool}/${tool}.py" DESTINATION bin)
+endforeach()
 
-install(FILES
-  ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_channel/cyber_channel
-  ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_launch/cyber_launch
-  ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_node/cyber_node
-  ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_service/cyber_service
+file(COPY cyber_tools_auto_complete.bash DESTINATION ${CMAKE_BINARY_DIR})
+install(PROGRAMS
   ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_monitor/cyber_monitor
   ${CMAKE_BINARY_DIR}/bin/cyber/tools/cyber_recorder/cyber_recorder
-  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
   DESTINATION bin
 )
 install(FILES

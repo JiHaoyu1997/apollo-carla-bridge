@@ -7,7 +7,13 @@ CYBERRT_PATH=$(dirname "$_SETUP_PATH") # CyberRT Path
 BUILD_PATH=$_SETUP_PATH # build path
 PATH=$_SETUP_PATH/bin/cyber/tools:$_SETUP_PATH/bin/cyber/mainboard:$PATH
 PYTHONPATH=$_SETUP_PATH/lib/python@Python_VERSION@/site-packages:$_SETUP_PATH/lib/python@Python_VERSION@/site-packages/cyber/python/internal:$PYTHONPATH
-LD_LIBRARY_PATH=$_SETUP_PATH/lib:$LD_LIBRARY_PATH
+# Third-party dependencies installed by install.py.
+_CYBERRT_DEPENDENCY_LIB="@PROJECT_SOURCE_DIR@/install/lib"
+if [ -d "$_CYBERRT_DEPENDENCY_LIB" ]; then
+    LD_LIBRARY_PATH="$_CYBERRT_DEPENDENCY_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+LD_LIBRARY_PATH="$_SETUP_PATH/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+unset _CYBERRT_DEPENDENCY_LIB
 LIBRARY_PATH=$_SETUP_PATH/lib:$LIBRARY_PATH
 CMAKE_PREFIX_PATH=$_SETUP_PATH:$CMAKE_PREFIX_PATH
 PKG_CONFIG_PATH=$_SETUP_PATH/lib/pkgconfig:$_SETUP_PATH/share/pkgconfig:$PKG_CONFIG_PATH
