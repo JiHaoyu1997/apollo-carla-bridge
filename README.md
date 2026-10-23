@@ -1,5 +1,7 @@
 # Apollo CyberRT v10.0.0
 
+宿主机 Bridge talker → Apollo 容器实收验证：[操作步骤](docs/apollo-talker.md)。
+
 ![CyberRT](https://raw.githubusercontent.com/wiki/minhanghuang/CyberRT/docs/CyberRT.gif)
 
 ## Build Status
@@ -224,3 +226,5 @@ target_link_libraries(${TARGET_NAME}
 ```
 
 #### This README provides an overview of CyberRT's setup, build process, and tools. Feel free to contribute or raise issues for any improvements! 🚀
+
+Bridge 独立镜像与不同 IP 通信：[部署步骤](docs/bridge-docker.md)。

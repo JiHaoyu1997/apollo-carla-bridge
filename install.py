@@ -53,6 +53,10 @@ class ThirdParty:
                 "github": "https://github.com/chriskohlhoff/asio.git",
                 "gitee": "https://gitee.com/minhanghuang/asio.git",
             },
+            "foonathan_memory": {
+                "github": "https://github.com/foonathan/memory.git",
+                "gitee": "https://github.com/foonathan/memory.git",
+            },
             "foonathan_memory_vendor": {
                 "github": "https://github.com/eProsima/foonathan_memory_vendor.git",
                 "gitee": "https://gitee.com/minhanghuang/foonathan_memory_vendor.git",
@@ -75,11 +79,16 @@ class ThirdParty:
 
 
 class Install:
-    def __init__(self, platform: str, install_prefix: str, proxy: str) -> None:
+    def __init__(self, platform: str, install_prefix: str, proxy: str, jobs: int = None, source_dir: str = None) -> None:
+        self._jobs = jobs if jobs is not None else max(1, (os.cpu_count() or 1) - 1)
+        if self._jobs < 1:
+            raise ValueError("jobs must be positive")
         self._machine = platform
         self._home_path = os.path.expanduser("~")
         self._current_path = os.path.abspath(os.path.dirname(__file__))
-        self._dowload_path = os.path.join(self._current_path, "third_party")
+        self._local_sources = source_dir is not None
+        self._dowload_path = (os.path.abspath(source_dir) if source_dir is not None
+                             else os.path.join(self._current_path, "third_party"))
         self._install_prefix = os.path.join(self._current_path, "install")
         self._proxy: str = proxy
         if install_prefix != "install":
@@ -138,9 +147,11 @@ class Install:
 
     def _clone_repo(self, repo_name: str, *args):
         dowload_path = os.path.join(self._dowload_path, repo_name)
-        if os.path.exists(dowload_path):
+        if os.path.isdir(dowload_path):
             print("repo exists: {}".format(dowload_path))
             return None
+        if self._local_sources:
+            raise FileNotFoundError("Missing local dependency source: {}. Run python3 docker/fetch_deps.py first.".format(dowload_path))
         repo_url = self._third_party.get_repo_url(repo_name)
         command = "git clone {} {}".format(repo_url, dowload_path)
         for arg in args:
@@ -159,7 +170,7 @@ class Install:
         self._cmd("mkdir -p build")
         os.chdir("build")
         self._cmd("cmake -DCMAKE_INSTALL_PREFIX={} ..".format(self._install_prefix))
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
         return None
 
@@ -261,7 +272,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
         return None
 
@@ -281,7 +292,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
         return None
 
@@ -300,7 +311,7 @@ class Install:
                 self._install_prefix, os.path.join(self._install_prefix, "lib")
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
 
         # 追加环境变量(issue: https://github.com/minhanghuang/CyberRT/issues/110)
@@ -368,7 +379,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
         return None
 
@@ -407,7 +418,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
 
         print("start make glog")
@@ -419,7 +430,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
 
         print("start make googletest")
@@ -431,7 +442,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
 
         print("start make protobuf")
@@ -444,7 +455,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
         return None
 
@@ -518,6 +529,21 @@ class Install:
         self._cmd("cp -r include {}".format(self._install_prefix))
         os.chdir(self._current_path)
 
+        # Build the vendor's transitive dependency explicitly to avoid its Git download.
+        self._clone_repo("foonathan_memory", "--single-branch", "--branch=v0.7-3", "--depth=1")
+        os.chdir(os.path.join(self._dowload_path, "foonathan_memory"))
+        self._cmd("mkdir -p build")
+        os.chdir("build")
+        self._cmd(
+            "cmake -DCMAKE_INSTALL_PREFIX={} -DBUILD_SHARED_LIBS=ON "
+            "-DFOONATHAN_MEMORY_BUILD_TESTS=OFF -DFOONATHAN_MEMORY_BUILD_EXAMPLES=OFF "
+            "-DFOONATHAN_MEMORY_BUILD_TOOLS=OFF ..".format(self._install_prefix)
+        )
+        self._cmd("make install -j{}".format(self._jobs))
+        os.chdir(self._current_path)
+        # Make the installed package visible to the vendor's find_package call.
+        self.environment["CMAKE_PREFIX_PATH"] = self._install_prefix + os.pathsep + self.environment.get("CMAKE_PREFIX_PATH", "")
+
         print("start make foonathan_memory_vendor")
         os.chdir(os.path.join(self._dowload_path, "foonathan_memory_vendor"))
         self._cmd("mkdir -p build")
@@ -527,7 +553,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
 
         print("start make Fast-CDR")
@@ -544,7 +570,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
 
         print("start make Fast-DDS")
@@ -556,7 +582,7 @@ class Install:
                 self._install_prefix
             )
         )
-        self._cmd("make install -j$(($(nproc) - 1))")
+        self._cmd("make install -j{}".format(self._jobs))
         os.chdir(self._current_path)
         return None
 
@@ -621,6 +647,13 @@ class Install:
         return "0.0"
 
 
+def positive_jobs(value):
+    jobs = int(value)
+    if jobs < 1:
+        raise argparse.ArgumentTypeError("jobs must be positive")
+    return jobs
+
+
 def parse_config():
     parser = argparse.ArgumentParser(description="install")
     parser.add_argument(
@@ -630,6 +663,8 @@ def parse_config():
         "--install_prefix", type=str, default="install", help="install prefix"
     )
     parser.add_argument("--proxy", type=str, default="github", help="proxy")
+    parser.add_argument("--jobs", type=positive_jobs, default=None, help="parallel build jobs (default: CPU count minus one, minimum 1)")
+    parser.add_argument("--source-dir", default=None, help="use predownloaded repository directories; missing sources fail without git clone")
     args = parser.parse_args()
     return args
 
@@ -640,5 +675,5 @@ if __name__ == "__main__":
         f"args.platform: {args.platform}, args.install_prefix: {args.install_prefix} args.proxy: {args.proxy}"
     )
     time.sleep(2)
-    install = Install(args.platform, args.install_prefix, args.proxy)
+    install = Install(args.platform, args.install_prefix, args.proxy, args.jobs, args.source_dir)
     install.start()

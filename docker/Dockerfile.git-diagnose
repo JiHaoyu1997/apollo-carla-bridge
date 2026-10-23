@@ -1,0 +1,39 @@
+# Git execution diagnostic; generated from the current build prerequisites.
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG DEPENDENCY_PROXY=github
+ARG BUILD_JOBS=4
+ENV USER=root PYTHONUNBUFFERED=1
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates git wget sudo build-essential cmake pkg-config \
+    autoconf automake libtool patch python3-dev python3-pip \
+    libcurl4-openssl-dev uuid-dev libncurses5-dev libtiff-dev \
+    libeigen3-dev libsqlite3-dev sqlite3 libssl-dev iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m pip install --no-cache-dir protobuf==3.14.0
+
+WORKDIR /opt/bridge
+# Diagnose direct, Python, and shell-mediated Git execution separately.
+RUN command -v git && ls -l /usr/bin/git && /usr/bin/git --version
+RUN python3 -c 'import subprocess; subprocess.run(["/usr/bin/git", "--version"], check=True)'
+RUN python3 -c 'import subprocess; subprocess.run("git --version", shell=True, check=True)'
+COPY install.py ./
+COPY scripts/ ./scripts/
+# Check whether copying project files changes executable access in this layer.
+RUN /usr/bin/git --version \
+    && python3 -c 'import subprocess; subprocess.run("git --version", shell=True, check=True)'
+# Diagnostic image only. No changes to AppArmor or seccomp settings.
+RUN apt-get update && apt-get install -y --no-install-recommends strace \
+    && rm -rf /var/lib/apt/lists/*
+# Trace a working invocation first, then the failing clone. Preserve exit status
+# while printing the trace even if clone fails or the network times out.
+RUN strace -f -s 256 -o /tmp/git-version.trace /usr/bin/git --version; \
+    version_status=$?; cat /tmp/git-version.trace; \
+    if [ "$version_status" -ne 0 ]; then exit "$version_status"; fi; \
+    timeout 45 strace -f -s 256 -o /tmp/git-clone.trace \
+      /usr/bin/git clone --depth=1 https://github.com/minhanghuang/setup.git /tmp/git-probe; \
+    clone_status=$?; cat /tmp/git-clone.trace; exit "$clone_status"

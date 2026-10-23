@@ -175,6 +175,13 @@ add_library(${TARGET_NAME} SHARED
     ${CYBER_PROTO_SRCS}
     ${CYBER_SRCS}
 )
+option(APOLLO_LEGACY_RTPS "Use Apollo int32/int32/string/string DDS wire format" OFF)
+if(APOLLO_LEGACY_RTPS)
+  set_source_files_properties(cyber/transport/rtps/underlay_message.cc
+    PROPERTIES COMPILE_DEFINITIONS APOLLO_LEGACY_RTPS)
+  add_executable(legacy_rtps_wire_test EXCLUDE_FROM_ALL tests/legacy_rtps_wire_test.cc)
+  target_link_libraries(legacy_rtps_wire_test ${TARGET_NAME} fastcdr)
+endif()
 target_link_libraries(${TARGET_NAME}
     ${glog_LIBRARIES}
     ${Gflags_LIBRARIES}

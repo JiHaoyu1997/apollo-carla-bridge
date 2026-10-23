@@ -66,36 +66,71 @@ UnderlayMessage& UnderlayMessage::operator=(UnderlayMessage&& x) {
 }
 
 size_t UnderlayMessage::getMaxCdrSerializedSize(size_t current_alignment) {
+#ifdef APOLLO_LEGACY_RTPS
+  return 528;
+#else
   return UnderlayMessage_max_cdr_typesize;
+#endif
 }
 
 size_t UnderlayMessage::getCdrSerializedSize(const UnderlayMessage& data,
                                              size_t current_alignment) {
   size_t initial_alignment = current_alignment;
 
+#ifdef APOLLO_LEGACY_RTPS
+  current_alignment +=
+      4 + eprosima::fastcdr::Cdr::alignment(current_alignment, 4);
+  current_alignment +=
+      4 + eprosima::fastcdr::Cdr::alignment(current_alignment, 4);
+#else
   current_alignment +=
       8 + eprosima::fastcdr::Cdr::alignment(current_alignment, 8);
 
   current_alignment +=
       8 + eprosima::fastcdr::Cdr::alignment(current_alignment, 8);
+#endif
 
   current_alignment += 4 +
                        eprosima::fastcdr::Cdr::alignment(current_alignment, 4) +
                        data.data().size() + 1;
+#ifdef APOLLO_LEGACY_RTPS
+  // Apollo's legacy envelope carries an unused datatype string (empty here).
+  current_alignment +=
+      4 + eprosima::fastcdr::Cdr::alignment(current_alignment, 4) + 1;
+#endif
 
   return current_alignment - initial_alignment;
 }
 
 void UnderlayMessage::serialize(eprosima::fastcdr::Cdr& scdr) const {
+#ifdef APOLLO_LEGACY_RTPS
+  scdr << static_cast<int32_t>(m_timestamp);
+  scdr << static_cast<int32_t>(m_seq);
+  scdr << m_data;
+  scdr << std::string();
+#else
   scdr << m_timestamp;
   scdr << m_seq;
   scdr << m_data;
+#endif
 }
 
 void UnderlayMessage::deserialize(eprosima::fastcdr::Cdr& dcdr) {
+#ifdef APOLLO_LEGACY_RTPS
+  int32_t timestamp;
+  int32_t seq;
+  std::string datatype;
+  dcdr >> timestamp;
+  dcdr >> seq;
+  dcdr >> m_data;
+  dcdr >> datatype;
+  m_timestamp = timestamp;
+  m_seq = seq;
+#else
   dcdr >> m_timestamp;
   dcdr >> m_seq;
   dcdr >> m_data;
+#endif
 }
 
 size_t UnderlayMessage::getKeyMaxCdrSerializedSize(size_t current_alignment) {

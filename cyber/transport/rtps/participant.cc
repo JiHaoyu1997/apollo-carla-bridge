@@ -167,6 +167,11 @@ bool Participant::CreateParticipant(
   udp_transport->sendBufferSize = 1024 * 1025 * 10;
   udp_transport->receiveBufferSize = 1024 * 1025 * 10;
   udp_transport->interfaceWhiteList.push_back(ip_env);
+  // Legacy Apollo Fast RTPS rewrites same-host unicast locators to loopback.
+  // Listen there as well, otherwise discovery works only in one direction.
+  if (ip_env != "127.0.0.1") {
+    udp_transport->interfaceWhiteList.push_back("127.0.0.1");
+  }
   participant_qos.transport().user_transports.push_back(udp_transport);
   participant_qos.transport().use_builtin_transports = false;
   AINFO << "part name: " << participant_qos.name() << ", port: " << send_port_;

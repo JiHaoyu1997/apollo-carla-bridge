@@ -53,7 +53,7 @@ export GLOG_alsologtostderr=1
 export GLOG_colorlogtostderr=1
 export GLOG_minloglevel=0
 export sysmo_start=0
-export CYBER_DOMAIN_ID=80
-export CYBER_IP=127.0.0.1
+export CYBER_DOMAIN_ID="${CYBER_DOMAIN_ID:-80}"
+export CYBER_IP="${CYBER_IP:-127.0.0.1}"
 
 source ${BUILD_PATH}/cyber_tools_auto_complete.bash
